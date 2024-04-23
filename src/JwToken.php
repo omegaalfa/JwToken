@@ -5,43 +5,69 @@ namespace omegalfa\jwtoken;
 use InvalidArgumentException;
 use JsonException;
 
+use function openssl_sign;
+
 class JwToken
 {
-	/**
-	 * @var string
-	 */
-	private string $secretKey;
+	use StreamHelperJwToken;
 
 	/**
-	 * @param  string  $secretKey
+	 * @var resource|null
 	 */
-	public function __construct(string $secretKey)
-	{
-		$this->secretKey = $secretKey;
+	private $privateKey = null;
+
+
+	public function __construct(
+		public readonly string $secretKey,
+		public readonly string $algorithm = 'HS256',
+		public string $pathPrivateKey = '',
+		public string $pathPublicKey = '',
+	) {
+		$this->validateConfigStart();
 	}
 
+	/**
+	 * @return void
+	 */
+	private function validateConfigStart(): void
+	{
+		if($this->algorithm === 'RS256') {
+			if(!file_exists($this->pathPrivateKey) || !file_exists($this->pathPublicKey)) {
+				throw new InvalidArgumentException('public or private key path not provided or does not exist.');
+			}
+		}
+	}
 
 	/**
 	 * @param  mixed  $payload
 	 * @param  int    $minutes
+	 * @param  array  $options
 	 *
 	 * @return string
 	 * @throws JsonException
 	 */
-	public function createToken(mixed $payload, int $minutes = 120): string
+	public function createToken(mixed $payload, int $minutes = 120, array $options = []): string
 	{
-		if(!is_array($payload) && !is_object($payload)) {
-			throw new InvalidArgumentException('Payload deve ser um array ou um objeto.');
-		}
+		$this->validatePayload($payload);
 
 		if(!isset($payload['exp'])) {
 			$payload['exp'] = time() + (60 * $minutes);
 		}
-		
-		$base64UrlHeader = $this->baseEncode(json_encode(["alg" => "HS256", "typ" => "JWT"], JSON_THROW_ON_ERROR));
+
+		$header = [
+			'alg' => $this->algorithm,
+			'typ' => 'JWT',
+		];
+
+		if(isset($options['kid'])) {
+			$header['kid'] = $options['kid'];
+		}
+
+		$base64UrlHeader = $this->baseEncode(json_encode($header, JSON_THROW_ON_ERROR));
 		$base64UrlPayload = $this->baseEncode(json_encode($payload, JSON_THROW_ON_ERROR));
-		$base64UrlSignature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $this->secretKey, true);
-		$base64UrlSignature = $this->baseEncode($base64UrlSignature);
+
+		$signature = $this->generateSignature($base64UrlHeader, $base64UrlPayload);
+		$base64UrlSignature = $this->baseEncode($signature);
 
 		return $base64UrlHeader . '.' . $base64UrlPayload . '.' . $base64UrlSignature;
 	}
@@ -51,29 +77,32 @@ class JwToken
 	 * @param  string  $token
 	 *
 	 * @return bool
+	 * @throws JsonException
 	 */
 	public function validateToken(string $token): bool
 	{
 		[$base64UrlHeader, $base64UrlPayload, $base64UrlSignature] = explode('.', $token);
 
 		$signature = $this->baseDecode($base64UrlSignature);
-		$expectedSignature = hash_hmac('sha256', $base64UrlHeader . '.' . $base64UrlPayload, $this->secretKey, true);
+		$expectedSignature = $this->generateSignature($base64UrlHeader, $base64UrlPayload);
+
+		if($this->algorithm === 'RS256') {
+			$publicKey = $this->readFile($this->pathPublicKey);
+			$signature = $this->baseDecode($base64UrlSignature);
+			$data = $base64UrlHeader . '.' . $base64UrlPayload;
+
+			if(!openssl_verify($data, $signature, $publicKey, OPENSSL_ALGO_SHA256)) {
+				return false;
+			}
+		}
 
 		if(!hash_equals($signature, $expectedSignature)) {
 			return false;
 		}
 
-		try {
-			$payload = json_decode($this->baseDecode($base64UrlPayload), true, 512, JSON_THROW_ON_ERROR);
-		} catch(JsonException) {
-			return false;
-		}
+		$payload = $this->decodePayload($base64UrlPayload);
 
-		if($payload['exp'] < time()) {
-			return false;
-		}
-
-		return true;
+		return $this->validatePayloadClaims($payload);
 	}
 
 
@@ -90,6 +119,85 @@ class JwToken
 
 		return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
 	}
+
+	/**
+	 * @param  string  $base64UrlHeader
+	 * @param  string  $base64UrlPayload
+	 *
+	 * @return string
+	 * @throws JsonException
+	 */
+	public function generateSignature(string $base64UrlHeader, string $base64UrlPayload): string
+	{
+		if($this->algorithm === 'RS256') {
+			$privateKey = $this->privateKey ?? null;
+
+			if(!$privateKey) {
+				// Carregar a chave privada apenas na primeira vez
+				$privateKey = $this->privateKey = openssl_pkey_get_private(
+					$this->readFile($this->pathPrivateKey)
+				);
+			}
+
+			if(!openssl_sign($base64UrlHeader . '.' . $base64UrlPayload, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+				throw new JsonException('Failed to generate token signature.');
+			}
+
+			return $signature;
+		}
+
+		return hash_hmac($this->verifiryHmac($this->algorithm), $base64UrlHeader . '.' . $base64UrlPayload, $this->secretKey, true);
+	}
+
+	/**
+	 * @param  string  $algo
+	 *
+	 * @return string
+	 */
+	private function verifiryHmac(string $algo): string
+	{
+		if(in_array($algo, hash_hmac_algos())) {
+			return $algo;
+		}
+
+		return 'sha256';
+	}
+
+	/**
+	 * @param  mixed  $payload
+	 *
+	 * @throws InvalidArgumentException
+	 */
+	private function validatePayload(mixed $payload): void
+	{
+		if(!is_array($payload) && !is_object($payload)) {
+			throw new InvalidArgumentException('Payload must be an array or an object.');
+		}
+	}
+
+	/**
+	 * @param  string  $base64UrlPayload
+	 *
+	 * @return mixed
+	 * @throws JsonException
+	 */
+	private function decodePayload(string $base64UrlPayload): mixed
+	{
+		$payload = $this->baseDecode($base64UrlPayload);
+
+		return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+	}
+
+	/**
+	 * @param  array  $payload
+	 *
+	 * @return bool
+	 */
+	private function validatePayloadClaims(array $payload): bool
+	{
+		return !(isset($payload['exp']) && $payload['exp'] < time());
+	}
+
 
 	/**
 	 * @param  string  $data
@@ -116,5 +224,4 @@ class JwToken
 
 		return base64_decode($base64Padded);
 	}
-}
 }
