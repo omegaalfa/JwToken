@@ -3,7 +3,7 @@
 namespace omegalfa\jwtoken;
 
 use Psr\Http\Message\StreamInterface;
-use src\stream\Stream;
+use omegalfa\jwtoken\stream\Stream;
 
 trait StreamHelperJwToken
 {
