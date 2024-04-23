@@ -1,7 +1,7 @@
 <?php
 
 
-namespace omegalfa\jwtoken\stream;
+namespace omegaalfa\jwtoken\stream;
 
 
 use Generator;
