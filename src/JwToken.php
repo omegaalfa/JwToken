@@ -1,6 +1,6 @@
 <?php
 
-namespace omegalfa\jwtoken;
+namespace omegaalfa\jwtoken;
 
 use InvalidArgumentException;
 use JsonException;
