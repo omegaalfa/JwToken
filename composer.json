@@ -17,6 +17,11 @@
             "omegalfa\\jwtoken\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "tests\\": "tests/"
+        }
+    },
    "require-dev": {
     "phpunit/phpunit": "^9.0"
   },
