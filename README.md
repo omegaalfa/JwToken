@@ -7,7 +7,7 @@ Esta biblioteca fornece uma implementação simples de JWT (JSON Web Token) em P
 Você pode instalar esta biblioteca usando o Composer:
 
 ```bash
-composer require omegalfa/jwtoken
+composer require omegaalfa/jwtoken
 ```
 Descrição
 -----------
