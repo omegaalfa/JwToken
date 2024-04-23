@@ -1,9 +1,9 @@
 <?php
 
-namespace omegalfa\jwtoken;
+namespace omegaalfa\jwtoken;
 
 use Psr\Http\Message\StreamInterface;
-use omegalfa\jwtoken\stream\Stream;
+use omegaalfa\jwtoken\stream\Stream;
 
 trait StreamHelperJwToken
 {
