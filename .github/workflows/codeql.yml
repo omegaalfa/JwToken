@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['php']
+        language:  ${{ matrix.language }}
 
     steps:
     - name: Checkout repository
