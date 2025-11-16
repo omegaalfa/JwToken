@@ -17,6 +17,16 @@ jobs:
           php-version: '8.4'
           coverage: xdebug
 
+      # 👇 mover o cache aqui garante que o Composer use PHP 8.4
+      - name: 📦 Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
@@ -28,12 +38,3 @@ jobs:
 
       - name: Composer audit
         run: composer audit
-
-      - name: 📦 Cache Composer packages
-        id: composer-cache
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-php-
