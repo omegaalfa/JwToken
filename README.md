@@ -173,6 +173,7 @@
  - Favor `HS512` or `RS256`; fallback only when compatibility demands it.
  - Monitor `jwt.validateToken()` failures to detect tampering or clock skew issues.
  - Log and alert on revocation decisions tied to `jti`.
+- See the [security policy](SECURITY.md) for the preferred way to report vulnerabilities and what branches remain supported.
 
  ## Testing and diagnostics
 
@@ -189,7 +190,8 @@
  session.cookie_secure=1
  session.cookie_httponly=1
  open_basedir=/app:/tmp
- ```# JwToken
+ ```
+# JwToken
 
 JwToken is a PHP library for creating, signing and validating JSON Web Tokens (JWT) with support for:
 
