@@ -1,4 +1,192 @@
-# JwToken
+ # JwToken
+
+ ![PHP 8.4+](https://img.shields.io/badge/php-8.4%2B-777777?style=flat-square) ![Licença MIT](https://img.shields.io/badge/licença-MIT-blue?style=flat-square)
+
+ JwToken é uma biblioteca PHP pronta para produção que assina, valida e rotaciona tokens JWT com validações rigorosas de claims e tratamento claro dos erros.
+
+ ## Por que usar o JwToken?
+
+ | Pilar | Benefício imediato |
+ | --- | --- |
+ | **Validação robusta** | `exp`, `nbf`, `iat`, `iss` e `aud` são verificados com tolerância de clock configurável. |
+ | **Criptografia versátil** | Suporta HS256/384/512 e RS256 com helpers para rotacionar chaves. |
+ | **Revogação nativa** | `jti` somado a `RevocationStoreInterface` permite bloquear tokens roubados. |
+ | **Observabilidade** | Exceções específicas tornam fácil mapear falhas para métricas ou alertas.
+
+ ## Instalação
+
+ ```bash
+ composer require omegaalfa/jwtoken
+ ```
+
+ ## Exemplo básico (HS256)
+
+ Este trecho gera um token, define o `kid` opcional e valida `issuer`/`audience`.
+
+ ```php
+ use Omegaalfa\Jwtoken\JwToken;
+
+ $secret = getenv('JWT_SECRET');
+ if ($secret === false) {
+     throw new RuntimeException('Configure a variável JWT_SECRET');
+ }
+
+ $jwt = new JwToken($secret, 'HS256');
+ $jwt->expectedIssuer = 'https://auth.example.com';
+ $jwt->expectedAudience = 'example-api';
+ $jwt->clockSkewSeconds = 45;
+
+ $payload = [
+     'sub' => 'usuario-123',
+     'nome' => 'Marta',
+     'email' => 'marta@example.com',
+     'role' => 'editor',
+     'iat' => time(),
+     'exp' => time() + 900,
+ ];
+
+ $token = $jwt->createToken($payload);
+
+ if ($jwt->validateToken($token)) {
+     $claims = $jwt->decodeToken($token);
+     printf("Token válido para %s (%s)\n", $claims['nome'], $claims['sub']);
+ }
+ ```
+
+ ## Modelo de validação por claims
+
+ Utilize este bloco em middlewares para uniformizar checagens de token e autorização.
+
+ ```php
+ try {
+     $jwt->expectedIssuer = 'https://auth.example.com';
+     $jwt->expectedAudience = 'example-api';
+     $jwt->clockSkewSeconds = 60;
+
+     if (! $jwt->validateToken($tokenDoCabecalho)) {
+         throw new RuntimeException('Token inválido');
+     }
+
+     $subject = $jwt->decodeToken($tokenDoCabecalho);
+     if ($subject['role'] !== 'admin') {
+         throw new RuntimeException('acesso negado');
+     }
+ } catch (Exception $ex) {
+     // transforme em 401/403 conforme o caso
+ }
+ ```
+
+ ## Referência de claims
+
+ | Claim | Significado |
+ | --- | --- |
+ | `exp` | Data de expiração; tokens não são aceitos após esse timestamp. |
+ | `nbf` | Not before; impede uso antecipado. |
+ | `iat` | Issued-at; combine com `clockSkewSeconds` para drift. |
+ | `iss` | Issuer; precisa casar com `expectedIssuer`. |
+ | `aud` | Audience; precisa casar com `expectedAudience`. |
+ | `jti` | JWT ID; gerado quando ausente e usado para revogação. |
+
+ ## Rotação de chaves HMAC (`kid`)
+
+ Registre múltiplos segredos e assine novos tokens com a chave atual.
+
+ ```php
+ $jwt = new JwToken('segredo-atual', 'HS256');
+ $jwt->setHmacKeys([
+     'v1' => 'segredo-legado',
+     'v2' => 'segredo-lancado',
+ ]);
+
+ $token = $jwt->createToken($payload, 120, ['kid' => 'v2']);
+ $jwt->validateToken($token);
+ ```
+
+ Se o header não trouxer `kid`, o segredo passado ao construtor é usado como fallback.
+
+ ## Uso com RS256
+
+ Configure os caminhos das chaves privada e pública e deixe o OpenSSL cuidar da assinatura.
+
+ ```php
+ $jwt = new JwToken(
+     secretKey: 'não usado para RS256',
+     algorithm: 'RS256',
+     pathPrivateKey: __DIR__ . '/keys/private.pem',
+     pathPublicKey: __DIR__ . '/keys/public.pem'
+ );
+
+ $token = $jwt->createToken($payload);
+ if ($jwt->validateToken($token)) {
+     $claims = $jwt->decodeToken($token);
+ }
+ ```
+
+ Armazene chaves RSA de ao menos 2048 bits fora do diretório público (ex.: `storage/keys` ou volume seguro).
+
+ ### Workflow de rotação RSA
+
+ 1. Gere um novo par de chaves e registre-o em `setRsaKeyPaths`.
+ 2. Comece a assinar com o novo `kid` enquanto o par antigo continua registrado.
+ 3. Monitore o tráfego para saber quando poucos tokens antigos circulam.
+ 4. Remova o `kid` legado e atualize o `pathPublicKey` padrão quando for seguro.
+
+ ```php
+ $jwt->setRsaKeyPaths(
+     ['k1' => __DIR__ . '/keys/private_v1.pem', 'k2' => __DIR__ . '/keys/private_v2.pem'],
+     ['k1' => __DIR__ . '/keys/public_v1.pem', 'k2' => __DIR__ . '/keys/public_v2.pem']
+ );
+
+ $jwt->createToken($payload, 300, ['kid' => 'k2']);
+ $jwt->validateToken($token);
+ ```
+
+ ## Revogação e `jti`
+
+ Toda geração garante `jti` e, se um revocation store estiver configurado, ela é consultada em cada validação.
+
+ ```php
+ class InMemoryRevocationStore implements RevocationStoreInterface
+ {
+     public function __construct(private array $revocados) {}
+
+     public function isRevoked(string $jti): bool
+     {
+         return in_array($jti, $this->revocados, true);
+     }
+ }
+
+ $jwt = new JwToken($secret);
+ $jwt->revocationStore = new InMemoryRevocationStore(['jti-comprometido']);
+ ```
+
+ Substitua `InMemory` por Redis ou banco de dados em produção. Revogue tokens assim que detectar vazamentos.
+
+ ## Boas práticas de segurança
+
+ - Armazene segredos e chaves RSA em vaults; nunca no repositório.
+ - Use tokens curtos (5–15 minutos) e um fluxo de refresh tokens seguro.
+ - Defina `expectedIssuer` e `expectedAudience` em todas as validações.
+ - Prefira `HS512` ou `RS256`; use algoritmos menores apenas por compatibilidade.
+ - Monitore falhas em `validateToken()` para identificar fraudes ou drift de relógio.
+ - Logue decisões de revogação baseadas em `jti`.
+
+ ## Testes e diagnóstico
+
+ - Mantenha `display_errors=0` e direcione `log_errors` para um arquivo seguro.
+ - Use a pasta `tests/` para ver como o pacote lida com bordas.
+ - Combine health-checks com tokens assinados para cada algoritmo na sua pipeline de deploy.
+
+ ## php.ini recomendado
+
+ ```ini
+ expose_php=0
+ display_errors=0
+ log_errors=1
+ session.cookie_secure=1
+ session.cookie_httponly=1
+ open_basedir=/app:/tmp
+ ```# JwToken
 
 Biblioteca em PHP para criação, assinatura e validação de JSON Web Tokens (JWT), com suporte a:
 
