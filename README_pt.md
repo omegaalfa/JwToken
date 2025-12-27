@@ -170,15 +170,36 @@ Substitua `InMemory` por Redis ou banco de dados em produção. Revogue tokens a
 - Prefira `HS512` ou `RS256`; use algoritmos menores apenas por compatibilidade.
 - Monitore falhas em `validateToken()` para identificar fraudes ou drift de relógio.
 - Logue decisões de revogação baseadas em `jti`.
+- Consulte a [política de segurança](SECURITY.md) para saber como reportar vulnerabilidades e quais branches ainda recebem correções.
 
-## Testes e diagnóstico
+### Proteções de segurança integradas
 
-- Mantenha `display_errors=0` e direcione `log_errors` para um arquivo seguro.
-- Use a pasta `tests/` para ver como o pacote lida com bordas.
-- Combine health-checks com tokens assinados para cada algoritmo na sua pipeline de deploy.
+Esta biblioteca implementa múltiplas camadas de defesa contra ataques comuns a JWT:
 
-## php.ini recomendado
+| Proteção | Implementação | Previne |
+| --- | --- | --- |
+| **Whitelist de algoritmos** | Apenas `HS256/384/512` e `RS256` permitidos | Ataques `alg=none` |
+| **Validação estrita de algoritmo** | `alg` do header deve coincidir com configuração | Ataques de confusão de chaves (HMAC/RSA) |
+| **Comparação em tempo constante** | `hash_equals()` para assinaturas HMAC | Ataques de timing |
+| **Limite de tamanho** | Máximo de 8.192 bytes | Negação de serviço |
+| **Proteção de clock skew** | Configurável via `setClockSkew()` (máx 300s) | Replay attacks com manipulação de relógio |
+| **Validação de idade** | Tokens com `iat` > 1 ano são rejeitados | Abuso de tokens antigos |
+| **Claims obrigatórios** | `iss`/`aud` exigidos quando configurados | Bypass por validação insuficiente |
+| **Base64url estrito** | Padding e validação adequados | Manipulação de encoding |
 
+#### Configurando clock skew com segurança
+
+```php
+// Padrão é 60 segundos, máximo permitido é 300 (5 minutos)
+$jwt->setClockSkew(30); // Recomendado para produção
+```
+
+#### Limites de idade do token
+
+```php
+// Rejeitar tokens com 'iat' mais antigo que o especificado (padrão: 1 ano)
+$jwt->setMaxTokenAge(86400 * 30); // 30 dias no máximo
+```
  ```bash
  expose_php=0
  display_errors=0
@@ -187,6 +208,7 @@ Substitua `InMemory` por Redis ou banco de dados em produção. Revogue tokens a
  session.cookie_httponly=1
  open_basedir=/app:/tmp
  ```
+ 
 # JwToken
 
 Biblioteca em PHP para criação, assinatura e validação de JSON Web Tokens (JWT), com suporte a:
@@ -211,16 +233,16 @@ composer require omegaalfa/jwtoken
 - **Algoritmos HMAC (HS256/384/512)** via `hash_hmac`, com mapeamento interno para `sha256`, `sha384`, `sha512`.
 - **RS256** via `openssl_sign` / `openssl_verify`, usando arquivos de chave privada/pública.
 - **Claims suportadas:**
-    - `exp` (expiração) – validada automaticamente.
-    - `nbf` (not before) – rejeita tokens usados antes do tempo.
-    - `iat` (issued at) – pode ser usada com tolerância de clock.
-    - `iss` (issuer) – comparada com `expectedIssuer`.
-    - `aud` (audience) – comparada com `expectedAudience`.
-    - `jti` (JWT ID) – gerada automaticamente se ausente e usada com `RevocationStoreInterface`.
+  - `exp` (expiração) – validada automaticamente.
+  - `nbf` (not before) – rejeita tokens usados antes do tempo.
+  - `iat` (issued at) – pode ser usada com tolerância de clock.
+  - `iss` (issuer) – comparada com `expectedIssuer`.
+  - `aud` (audience) – comparada com `expectedAudience`.
+  - `jti` (JWT ID) – gerada automaticamente se ausente e usada com `RevocationStoreInterface`.
 - **Proteções adicionais:**
-    - Limite máximo de tamanho de token.
-    - Parsing seguro (3 segmentos, Base64/JSON estrito).
-    - Comparação de assinatura HMAC com `hash_equals` (proteção contra timing attacks).
+  - Limite máximo de tamanho de token.
+  - Parsing seguro (3 segmentos, Base64/JSON estrito).
+  - Comparação de assinatura HMAC com `hash_equals` (proteção contra timing attacks).
 
 ## Uso básico com HMAC (HS256)
 

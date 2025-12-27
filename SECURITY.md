@@ -1,42 +1,42 @@
-# Política de segurança
+# Security Policy
 
-Este projeto prioriza a correção rápida de vulnerabilidades relacionadas a tokens JWT, chaves e enigmas criptográficos. Abaixo estão os detalhes de suporte e o fluxo ideal para reportar problemas.
+This project prioritizes rapid remediation of vulnerabilities related to JWT tokens, cryptographic keys, and authentication flows. Below are the support details and recommended process for reporting security issues.
 
-## Versões suportadas
+## Supported Versions
 
-As versões com correções de segurança ativas são:
+Security updates are actively maintained for:
 
-| Versão | Suporte ativo |
+| Version | Active Support |
 | --- | --- |
-| `main` (branch principal) | ✅ |
-| `1.x` (releases compatíveis com PHP 8.4+) | ✅ |
-| versões anteriores | ❌ (sem correções) |
+| `main` (main branch) | ✅ |
+| `1.x` (releases compatible with PHP 8.4+) | ✅ |
+| previous versions | ❌ (no updates) |
 
-Se você utiliza um release antigo, considere atualizar para aproveitar as correções e melhorias de criptografia.
+If you're using an older release, consider upgrading to benefit from security fixes and cryptographic improvements.
 
-## Como reportar uma vulnerabilidade
+## Reporting a Vulnerability
 
-1. Crie uma issue privada no GitHub usando o template de segurança se disponível.
-2. Caso prefira, envie um e-mail para security@omegaalfa.dev com:
-   - Descrição completa do cenário e do impacto (token forjado, assinatura inválida, etc.).
-   - Passos mínimos para reproduzir, incluindo comandos `php`/`openssl` quando aplicável.
-   - Versão do PHP (8.4+) e a branch ou tag do `JwToken` utilizada.
-3. Se puder, inclua PoC (ex.: script PHP + token) para acelerar a triagem.
+1. Create a private security issue on GitHub using the security advisory template if available.
+2. Alternatively, send an email to security@omegaalfa.dev with:
+   - Complete description of the scenario and impact (forged token, invalid signature, etc.).
+   - Minimal steps to reproduce, including `php`/`openssl` commands when applicable.
+   - PHP version (8.4+) and the `JwToken` branch or tag in use.
+3. If possible, include a PoC (e.g., PHP script + token) to expedite triage.
 
-## O que esperar
+## What to Expect
 
-- 📩 Confirmamos o recebimento em até 24 horas úteis.
-- 🛡️ Solicitamos mais informações quando necessário e mantemos você atualizado a cada 2–3 dias durante a investigação.
-- 📦 Publicamos correções em menor tempo possível e avisamos pela issue ou e-mail usado no contato inicial.
-- Se não houver feedback em 7 dias, revisaremos a prioridade e comunicaremos o status atual.
+- 📩 We confirm receipt within 24 business hours.
+- 🛡️ We request additional information as needed and keep you updated every 2–3 days during investigation.
+- 📦 We publish fixes as quickly as possible and notify via the issue or email used for initial contact.
+- If there's no feedback within 7 days, we'll review priority and communicate current status.
 
-## Boas práticas para comunicadores
+## Best Practices for Reporters
 
-- Não compartilhe detalhes públicos enquanto não houver correção ou aviso oficial.
-- Inclua o nível de urgência ou classificação (ex.: alta se um token ilimitado pode ser forjado).
-- Informe se a vulnerabilidade também afeta integrações HMAC e RS256, especialmente rotinas de rotação de chaves.
+- Do not share details publicly until a fix or official advisory is available.
+- Include urgency level or severity classification (e.g., high if unlimited tokens can be forged).
+- Indicate whether the vulnerability affects HMAC and RS256 integrations, especially key rotation routines.
 
-Obrigado por ajudar a manter o JwToken seguro. Trabalhamos juntos para proteger fluxos críticos de autenticação.# Security Policy
+Thank you for helping keep JwToken secure. Together we protect critical authentication flows.# Security Policy
 
 ## Supported Versions
 

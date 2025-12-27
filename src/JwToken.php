@@ -55,7 +55,11 @@ class JwToken
     /**
      * @var int
      */
-    public int $clockSkew = 60;
+    private int $clockSkew = 60;
+    /**
+     * @var int Maximum age for iat claim (1 year)
+     */
+    private int $maxTokenAge = 31536000;
     /**
      * @var RevocationStoreInterface|null
      */
@@ -131,6 +135,38 @@ class JwToken
     }
 
     /**
+     * @param int $seconds Clock skew tolerance in seconds (max 300)
+     * @return void
+     */
+    public function setClockSkew(int $seconds): void
+    {
+        if ($seconds < 0 || $seconds > 300) {
+            throw new InvalidArgumentException('clockSkew must be between 0 and 300 seconds.');
+        }
+        $this->clockSkew = $seconds;
+    }
+
+    /**
+     * @return int
+     */
+    public function getClockSkew(): int
+    {
+        return $this->clockSkew;
+    }
+
+    /**
+     * @param int $seconds Maximum token age in seconds
+     * @return void
+     */
+    public function setMaxTokenAge(int $seconds): void
+    {
+        if ($seconds < 60) {
+            throw new InvalidArgumentException('maxTokenAge must be at least 60 seconds.');
+        }
+        $this->maxTokenAge = $seconds;
+    }
+
+    /**
      * @param mixed $payload
      * @param int $minutes
      * @param array<string, string> $options
@@ -144,10 +180,6 @@ class JwToken
 
         if (!isset($payloadArray['exp'])) {
             $payloadArray['exp'] = time() + (60 * $minutes);
-        }
-
-        if (!isset($payloadArray['jti'])) {
-            $payloadArray['jti'] = bin2hex(random_bytes(16));
         }
 
         if (!isset($payloadArray['jti'])) {
@@ -273,7 +305,8 @@ class JwToken
             $pem = $this->readFile($this->rsaPrivateKeyPaths[$kid]);
             $privateKey = openssl_pkey_get_private($pem);
             if ($privateKey === false) {
-                throw new JsonException('Failed to load private key for the provided kid.');
+                error_log("JWT: Failed to load private key for kid: {$kid}");
+                throw new JsonException('Invalid token configuration.');
             }
 
             return $privateKey;
@@ -285,7 +318,8 @@ class JwToken
 
         $privateKey = openssl_pkey_get_private($this->readFile($this->pathPrivateKey));
         if ($privateKey === false) {
-            throw new JsonException('Failed to load default private key.');
+            error_log('JWT: Failed to load default private key.');
+            throw new JsonException('Invalid token configuration.');
         }
 
         return $this->privateKey = $privateKey;
@@ -439,18 +473,30 @@ class JwToken
         }
 
         // iat
-        if (isset($payload['iat']) && is_int($payload['iat']) && $payload['iat'] > $now + $this->clockSkew) {
-            return false;
+        if (isset($payload['iat']) && is_int($payload['iat'])) {
+            // Reject tokens that are too old
+            if ($payload['iat'] < $now - $this->maxTokenAge) {
+                return false;
+            }
+            // Reject tokens issued in the future
+            if ($payload['iat'] > $now + $this->clockSkew) {
+                return false;
+            }
         }
 
         // iss
-        if ($this->expectedIssuer !== null && (($payload['iss'] ?? null) !== $this->expectedIssuer)) {
-            return false;
+        if ($this->expectedIssuer !== null) {
+            if (!isset($payload['iss']) || $payload['iss'] !== $this->expectedIssuer) {
+                return false;
+            }
         }
 
         // aud
         if ($this->expectedAudience !== null) {
-            $aud = $payload['aud'] ?? null;
+            if (!isset($payload['aud'])) {
+                return false;
+            }
+            $aud = $payload['aud'];
             $audList = is_array($aud) ? $aud : [$aud];
             if (!in_array($this->expectedAudience, $audList, true)) {
                 return false;

@@ -1,27 +1,27 @@
- # JwToken
+# JwToken
 
- ![PHP 8.4+](https://img.shields.io/badge/php-8.4%2B-777777?style=flat-square) ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+![PHP 8.4+](https://img.shields.io/badge/php-8.4%2B-777777?style=flat-square) ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
- JwToken is a production-ready PHP library for signing, validating and rotating JSON Web Tokens (JWTs) while keeping strict claim checks and clear error handling.
+JwToken is a production-ready PHP library for signing, validating and rotating JSON Web Tokens (JWTs) while keeping strict claim checks and clear error handling.
 
- ## Why use JwToken?
+## Why use JwToken?
 
- | Pillar | What it delivers |
+| Pillar | What it delivers |
  | --- | --- |
- | **Robust validation** | Strict `exp`, `nbf`, `iat`, `iss`, `aud` checks plus configurable clock skew to prevent replay attacks. |
- | **Crypto flexibility** | Supports HS256/384/512 and RS256, with helpers for swapping keys without downtime. |
- | **Revocation ready** | Inject a `RevocationStoreInterface` implementation to block stolen tokens by their `jti`. |
- | **Telemetry-friendly** | Errors throw specific exceptions that can be mapped to observability pipelines.
+| **Robust validation** | Strict `exp`, `nbf`, `iat`, `iss`, `aud` checks plus configurable clock skew to prevent replay attacks. |
+| **Crypto flexibility** | Supports HS256/384/512 and RS256, with helpers for swapping keys without downtime. |
+| **Revocation ready** | Inject a `RevocationStoreInterface` implementation to block stolen tokens by their `jti`. |
+| **Telemetry-friendly** | Errors throw specific exceptions that can be mapped to observability pipelines.
 
- ## Installation
+## Installation
 
  ```bash
  composer require omegaalfa/jwtoken
  ```
 
- ## HS256 quick start
+## HS256 quick start
 
- The following snippet creates a token and validates it against issuer and audience hints.
+The following snippet creates a token and validates it against issuer and audience hints.
 
  ```php
  use Omegaalfa\Jwtoken\JwToken;
@@ -53,9 +53,9 @@
  }
  ```
 
- ## Claim-driven validation template
+## Claim-driven validation template
 
- Reuse this pattern in controllers or middlewares when decoding user tokens:
+Reuse this pattern in controllers or middlewares when decoding user tokens:
 
  ```php
  try {
@@ -77,20 +77,20 @@
  }
  ```
 
- ## Claim reference
+## Claim reference
 
- | Claim | Description |
+| Claim | Description |
  | --- | --- |
- | `exp` | Expiration time; token fails after this timestamp. |
- | `nbf` | Not before; rejects tokens used too early. |
- | `iat` | Issued-at; use with clock skew tolerance for clock drift. |
- | `iss` | Issuer; matches `expectedIssuer`. |
- | `aud` | Audience; matches `expectedAudience`. |
- | `jti` | JWT ID; auto-generated if missing and used for revocation. |
+| `exp` | Expiration time; token fails after this timestamp. |
+| `nbf` | Not before; rejects tokens used too early. |
+| `iat` | Issued-at; use with clock skew tolerance for clock drift. |
+| `iss` | Issuer; matches `expectedIssuer`. |
+| `aud` | Audience; matches `expectedAudience`. |
+| `jti` | JWT ID; auto-generated if missing and used for revocation. |
 
- ## HMAC key rotation with `kid`
+## HMAC key rotation with `kid`
 
- Maintaining multiple HMAC secrets lets you rotate without invalidating traffic immediately.
+Maintaining multiple HMAC secrets lets you rotate without invalidating traffic immediately.
 
  ```php
  $jwt = new JwToken('current-secret', 'HS256');
@@ -105,11 +105,11 @@
  $jwt->validateToken($token);
  ```
 
- If a header lacks a valid `kid`, the constructor secret acts as fallback so legacy clients still work.
+If a header lacks a valid `kid`, the constructor secret acts as fallback so legacy clients still work.
 
- ## RS256 usage
+## RS256 usage
 
- When you need public/private key pairs, provide the PEM files and let JwToken verify signatures with OpenSSL.
+When you need public/private key pairs, provide the PEM files and let JwToken verify signatures with OpenSSL.
 
  ```php
  $jwt = new JwToken(
@@ -125,14 +125,14 @@
  }
  ```
 
- Ensure your `.pem` files use at least 2048-bit RSA keys stored outside the document root (e.g. `storage/keys` or a protected volume).
+Ensure your `.pem` files use at least 2048-bit RSA keys stored outside the document root (e.g. `storage/keys` or a protected volume).
 
- ### RSA rotation workflow
+### RSA rotation workflow
 
- 1. Generate a new key pair and register it with `setRsaKeyPaths`.
- 2. Start signing new tokens with the fresh key and include its `kid`.
- 3. Keep the old key registered until its tokens expire.
- 4. Remove the old `kid` entry and (optionally) rotate the default `pathPublicKey` once telemetry shows zero usage.
+1. Generate a new key pair and register it with `setRsaKeyPaths`.
+2. Start signing new tokens with the fresh key and include its `kid`.
+3. Keep the old key registered until its tokens expire.
+4. Remove the old `kid` entry and (optionally) rotate the default `pathPublicKey` once telemetry shows zero usage.
 
  ```php
  $jwt->setRsaKeyPaths(
@@ -144,9 +144,9 @@
  $jwt->validateToken($token);
  ```
 
- ## Revocation and `jti`
+## Revocation and `jti`
 
- Every token receives a `jti` when none is supplied. Pair `jti` with a revocation store to explicitly invalidate tokens:
+Every token receives a `jti` when none is supplied. Pair `jti` with a revocation store to explicitly invalidate tokens:
 
  ```php
  class InMemoryRevocationStore implements RevocationStoreInterface
@@ -163,51 +163,70 @@
  $jwt->revocationStore = new InMemoryRevocationStore(['compromised-jti']);
  ```
 
- Use a persistent store (Redis, database) in production. Always revoke a token immediately when you suspect credential theft.
+Use a persistent store (Redis, database) in production. Always revoke a token immediately when you suspect credential theft.
 
- ## Security best practices
+## Security best practices
 
- - Keep secrets and RSA keys in your vault/secret manager rather than source control.
- - Pair short-lived access tokens (5–15 minutes) with refresh tokens that you rotate securely.
- - Explicitly set `expectedIssuer` and `expectedAudience` for every consumer.
- - Favor `HS512` or `RS256`; fallback only when compatibility demands it.
- - Monitor `jwt.validateToken()` failures to detect tampering or clock skew issues.
- - Log and alert on revocation decisions tied to `jti`.
+- Keep secrets and RSA keys in your vault/secret manager rather than source control.
+- Pair short-lived access tokens (5–15 minutes) with refresh tokens that you rotate securely.
+- Explicitly set `expectedIssuer` and `expectedAudience` for every consumer.
+- Favor `HS512` or `RS256`; fallback only when compatibility demands it.
+- Monitor `jwt.validateToken()` failures to detect tampering or clock skew issues.
+- Log and alert on revocation decisions tied to `jti`.
 - See the [security policy](SECURITY.md) for the preferred way to report vulnerabilities and what branches remain supported.
 
- ## Testing and diagnostics
+### Built-in security protections
 
- - Enable `display_errors=0` and forward `log_errors` to a central log to avoid leaking tokens.
- - Use the provided `tests/` folder to see how the library handles edge cases.
- - Combine health-check endpoints with sample tokens signed with each algorithm to ensure configuration works in every environment.
+This library implements multiple layers of defense against common JWT attacks:
 
- ## Recommended `php.ini` settings
+| Protection | Implementation | Prevents |
+| --- | --- | --- |
+| **Algorithm whitelist** | Only `HS256/384/512` and `RS256` allowed | `alg=none` attacks |
+| **Strict algorithm matching** | Header `alg` must match configured algorithm | Key confusion attacks (HMAC/RSA mix) |
+| **Constant-time comparison** | `hash_equals()` for HMAC signatures | Timing attacks |
+| **Token size limit** | Max 8,192 bytes | Denial of service |
+| **Clock skew protection** | Configurable via `setClockSkew()` (max 300s) | Replay attacks with clock manipulation |
+| **Token age validation** | Tokens with `iat` older than 1 year rejected | Long-lived token abuse |
+| **Mandatory claims** | `iss`/`aud` required when configured | Insufficient validation bypass |
+| **Base64url strict** | Proper padding and validation | Encoding manipulation |
 
- ```ini
+#### Configuring clock skew safely
+
+```php
+// Default is 60 seconds, maximum allowed is 300 (5 minutes)
+$jwt->setClockSkew(30); // Recommended for production
+```
+
+#### Token age limits
+
+```php
+// Reject tokens with 'iat' older than specified seconds (default: 1 year)
+$jwt->setMaxTokenAge(86400 * 30); // 30 days maximum
+```
+ ```bash
  expose_php=0
  display_errors=0
  log_errors=1
  session.cookie_secure=1
  session.cookie_httponly=1
  open_basedir=/app:/tmp
- ```
-# JwToken
+ ```# JwToken
 
-JwToken is a PHP library for creating, signing and validating JSON Web Tokens (JWT) with support for:
+ JwToken is a PHP library for creating, signing and validating JSON Web Tokens (JWT) with support for:
 
-- HMAC (HS256, HS384, HS512)
-- RSA (RS256)
-- Temporal claims (`exp`, `nbf`, `iat`) and contextual claims (`iss`, `aud`)
-- `jti` (JWT ID) with optional integration for revocation
+ - HMAC (HS256, HS384, HS512)
+ - RSA (RS256)
+ - Temporal claims (`exp`, `nbf`, `iat`) and contextual claims (`iss`, `aud`)
+ - `jti` (JWT ID) with optional integration for revocation
 
-> **Important:** this library is designed for production use. Make sure to read the “Security best practices” section before integrating.
+ > **Important:** this library is designed for production use. Make sure to read the “Security best practices” section before integrating.
 
-## Installation
+ ## Installation
 
-Via Composer:
+ Via Composer:
 
-```bash
-composer require omegaalfa/jwtoken
+ ```bash
+ composer require omegaalfa/jwtoken
 ```
 
 ## Quick start (HS256)
@@ -250,16 +269,16 @@ if ($jwt->validateToken($token)) {
 - **HMAC algorithms (HS256/384/512)** via `hash_hmac`, with internal mapping to `sha256`, `sha384`, `sha512`.
 - **RS256** via `openssl_sign` / `openssl_verify`, using private/public key files.
 - **Supported claims:**
-  - `exp` – expiration time, validated automatically.
-  - `nbf` – not-before, rejects tokens used before the configured time.
-  - `iat` – issued-at, can be used with configurable clock skew.
-  - `iss` – issuer, compared against `expectedIssuer`.
-  - `aud` – audience, compared against `expectedAudience`.
-  - `jti` – JWT ID, generated automatically if missing and used with `RevocationStoreInterface`.
+    - `exp` – expiration time, validated automatically.
+    - `nbf` – not-before, rejects tokens used before the configured time.
+    - `iat` – issued-at, can be used with configurable clock skew.
+    - `iss` – issuer, compared against `expectedIssuer`.
+    - `aud` – audience, compared against `expectedAudience`.
+    - `jti` – JWT ID, generated automatically if missing and used with `RevocationStoreInterface`.
 - **Additional protections:**
-  - Maximum token length limit.
-  - Safe parsing (3 segments, strict Base64/JSON decoding).
-  - Constant-time comparison for HMAC signatures via `hash_equals` (timing attack protection).
+    - Maximum token length limit.
+    - Safe parsing (3 segments, strict Base64/JSON decoding).
+    - Constant-time comparison for HMAC signatures via `hash_equals` (timing attack protection).
 
 ## Basic usage with HMAC (HS256)
 
@@ -443,7 +462,7 @@ $jwt->revocationStore = new InMemoryRevocationStore(['compromised-jti']);
 
 ## Recommended environment configuration (`php.ini`)
 
-```ini
+```bash
 expose_php=0
 display_errors=0
 log_errors=1

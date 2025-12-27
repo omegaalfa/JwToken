@@ -246,4 +246,286 @@ class JwtManagerTest extends TestCase
 
             return [$privPath, $pubPath];
         }
-	}
+
+    public function testSetClockSkew(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->setClockSkew(120);
+        $this->assertEquals(120, $jwt->getClockSkew());
+    }
+
+    public function testSetClockSkewThrowsExceptionForNegativeValue(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->setClockSkew(-10);
+    }
+
+    public function testSetClockSkewThrowsExceptionForTooLargeValue(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->setClockSkew(301);
+    }
+
+    public function testSetMaxTokenAge(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->setMaxTokenAge(86400);
+        
+        $payload = ['user_id' => 1];
+        $token = $jwt->createToken($payload);
+        
+        $this->assertTrue($jwt->validateToken($token));
+    }
+
+    public function testSetMaxTokenAgeThrowsExceptionForTooSmallValue(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->setMaxTokenAge(30);
+    }
+
+    public function testOldTokenIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->setMaxTokenAge(86400); // 1 dia
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => time() - (86400 * 2), // 2 dias atrás
+        ];
+        
+        $token = $jwt->createToken($payload);
+        $this->assertFalse($jwt->validateToken($token));
+    }
+
+    public function testTokenWithFutureIatIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => time() + 3600, // 1 hora no futuro (além do clock skew)
+        ];
+        
+        $token = $jwt->createToken($payload);
+        $this->assertFalse($jwt->validateToken($token));
+    }
+
+    public function testMissingIssuerWhenExpectedIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->expectedIssuer = 'https://example.com';
+        
+        $payload = ['user_id' => 1]; // sem 'iss'
+        $token = $jwt->createToken($payload);
+        
+        $this->assertFalse($jwt->validateToken($token));
+    }
+
+    public function testMissingAudienceWhenExpectedIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->expectedAudience = 'my-api';
+        
+        $payload = ['user_id' => 1]; // sem 'aud'
+        $token = $jwt->createToken($payload);
+        
+        $this->assertFalse($jwt->validateToken($token));
+    }
+
+    public function testAudienceAsArray(): void
+    {
+        $jwt = new JwToken('secret');
+        $jwt->expectedAudience = 'api-2';
+        
+        $payload = [
+            'user_id' => 1,
+            'aud' => ['api-1', 'api-2', 'api-3'],
+        ];
+        
+        $token = $jwt->createToken($payload);
+        $this->assertTrue($jwt->validateToken($token));
+    }
+
+    public function testRevocationStoreBlocksToken(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = ['user_id' => 1];
+        $token = $jwt->createToken($payload);
+        $decoded = $jwt->decodeToken($token);
+        
+        // Adiciona o jti à lista de revogados
+        $revokedStore = new \Omegaalfa\Jwtoken\InMemoryRevocationStore([$decoded['jti']]);
+        $jwt->revocationStore = $revokedStore;
+        
+        $this->assertFalse($jwt->validateToken($token));
+    }
+
+    public function testTokenTooLongIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->validateToken(str_repeat('a', 8200));
+    }
+
+    public function testMalformedTokenIsRejected(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->validateToken('invalid.token');
+    }
+
+    public function testDecodeTokenThrowsExceptionForMalformedToken(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->decodeToken('bad.token');
+    }
+
+    public function testUnsupportedAlgorithmThrowsException(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new JwToken('secret', 'NONE');
+    }
+
+    public function testRS256WithoutKeysThrowsException(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new JwToken('secret', 'RS256', '', '');
+    }
+
+    public function testHS384Algorithm(): void
+    {
+        $jwt = new JwToken('my-secret-384', 'HS384');
+        
+        $payload = ['user_id' => 99];
+        $token = $jwt->createToken($payload);
+        
+        $this->assertTrue($jwt->validateToken($token));
+    }
+
+    public function testHS512Algorithm(): void
+    {
+        $jwt = new JwToken('my-secret-512', 'HS512');
+        
+        $payload = ['user_id' => 88];
+        $token = $jwt->createToken($payload);
+        
+        $this->assertTrue($jwt->validateToken($token));
+    }
+
+    public function testCustomExpirationTime(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $customExp = time() + 7200;
+        $payload = [
+            'user_id' => 1,
+            'exp' => $customExp,
+        ];
+        
+        $token = $jwt->createToken($payload);
+        $decoded = $jwt->decodeToken($token);
+        
+        $this->assertEquals($customExp, $decoded['exp']);
+    }
+
+    public function testAutoGeneratedJti(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = ['user_id' => 1];
+        $token = $jwt->createToken($payload);
+        
+        $decoded = $jwt->decodeToken($token);
+        $this->assertArrayHasKey('jti', $decoded);
+        $this->assertIsString($decoded['jti']);
+        $this->assertNotEmpty($decoded['jti']);
+    }
+
+    public function testCustomJtiIsPreserved(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $customJti = 'my-custom-jti-12345';
+        $payload = [
+            'user_id' => 1,
+            'jti' => $customJti,
+        ];
+        
+        $token = $jwt->createToken($payload);
+        $decoded = $jwt->decodeToken($token);
+        
+        $this->assertEquals($customJti, $decoded['jti']);
+    }
+
+    public function testInvalidPayloadTypeThrowsException(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->createToken('invalid_payload');
+    }
+
+    public function testNonIntegerExpClaimThrowsException(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = [
+            'user_id' => 1,
+            'exp' => 'not-an-int',
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->createToken($payload);
+    }
+
+    public function testNonIntegerIatClaimThrowsException(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => 'not-an-int',
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->createToken($payload);
+    }
+
+    public function testNonIntegerNbfClaimThrowsException(): void
+    {
+        $jwt = new JwToken('secret');
+        
+        $payload = [
+            'user_id' => 1,
+            'nbf' => 'not-an-int',
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $jwt->createToken($payload);
+    }
+
+    public function testInMemoryRevocationStoreAdd(): void
+    {
+        $store = new \Omegaalfa\Jwtoken\InMemoryRevocationStore();
+        
+        $this->assertFalse($store->isRevoked('test-jti'));
+        
+        $store->add('test-jti');
+        $this->assertTrue($store->isRevoked('test-jti'));
+        
+        // Adicionar novamente não deve duplicar
+        $store->add('test-jti');
+        $this->assertTrue($store->isRevoked('test-jti'));
+    }
+}
