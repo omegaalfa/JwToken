@@ -315,7 +315,7 @@ class JwToken
             $kid = $options['kid'];
             
             // Validate kid format
-            if (!is_string($kid) || !preg_match(self::KID_PATTERN, $kid)) {
+            if (!preg_match(self::KID_PATTERN, $kid)) {
                 throw new InvalidArgumentException('Invalid kid format. Only alphanumeric, dash, and underscore allowed (max 64 chars).');
             }
             
