@@ -12,7 +12,8 @@ class JwtManagerTest extends TestCase
 
 	protected function setUp(): void
 	{
-		$this->jwtManager = new JwToken('secret_key');
+		// Use a 32-byte secret as required by security hardening
+		$this->jwtManager = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
 		$this->jwtManager->pathPrivateKey = 'path/to/private.key';
 		$this->jwtManager->pathPublicKey = 'path/to/public.key';
         $this->jwtManager->expectedIssuer = 'https://example-issuer';
@@ -113,7 +114,7 @@ class JwtManagerTest extends TestCase
 
     public function testSetHmacKeysUsesKidSecret(): void
     {
-        $jwt = new JwToken('fallback_secret', 'HS256');
+        $jwt = new JwToken('this-is-a-secure-32-byte-fallback-secret', 'HS256');
 
         // registra duas chaves diferentes
         $jwt->setHmacKeys([
@@ -136,7 +137,7 @@ class JwtManagerTest extends TestCase
 	        $audience = 'example-audience';
 	
 	        // emissor com chave v1
-	        $emissor = new JwToken('fallback_secret', 'HS256');
+	        $emissor = new JwToken('this-is-a-secure-32-byte-fallback-secret', 'HS256');
 	        $emissor->expectedIssuer = $issuer;
 	        $emissor->expectedAudience = $audience;
 	        $emissor->setHmacKeys([
@@ -152,7 +153,7 @@ class JwtManagerTest extends TestCase
 	        $token = $emissor->createToken($payload, 60, ['kid' => 'v1']);
 	
 	        // validador com chave diferente em v1
-	        $validador = new JwToken('fallback_secret', 'HS256');
+	        $validador = new JwToken('this-is-a-secure-32-byte-fallback-secret', 'HS256');
 	        $validador->expectedIssuer = $issuer;
 	        $validador->expectedAudience = $audience;
 	        $validador->setHmacKeys([
@@ -164,7 +165,7 @@ class JwtManagerTest extends TestCase
 
         public function testAlgMismatchThrowsException(): void
         {
-            $secret = 'secret_key';
+            $secret = 'this-is-a-secure-32-byte-secret-key-for-testing';
 
             $jwtHs256 = new JwToken($secret, 'HS256');
             $payload = ['user_id' => 1];
@@ -180,7 +181,7 @@ class JwtManagerTest extends TestCase
         {
             [$privPath, $pubPath] = $this->generateRsaKeyPair();
 
-            $jwt = new JwToken('dummy', 'RS256', $privPath, $pubPath);
+            $jwt = new JwToken('this-is-a-dummy-32-byte-secret-for-rsa-alg', 'RS256', $privPath, $pubPath);
             $jwt->setRsaKeyPaths(
                 ['k1' => $privPath],
                 ['k1' => $pubPath]
@@ -198,7 +199,7 @@ class JwtManagerTest extends TestCase
             [$priv2, $pub2] = $this->generateRsaKeyPair();
 
             // emissor com par de chaves 1
-            $emissor = new JwToken('dummy', 'RS256', $priv1, $pub1);
+            $emissor = new JwToken('this-is-a-dummy-32-byte-secret-for-rsa-alg', 'RS256', $priv1, $pub1);
             $emissor->setRsaKeyPaths(
                 ['k1' => $priv1],
                 ['k1' => $pub1]
@@ -208,7 +209,7 @@ class JwtManagerTest extends TestCase
             $token = $emissor->createToken($payload, 60, ['kid' => 'k1']);
 
             // validador com chave pública diferente para o mesmo kid
-            $validador = new JwToken('dummy', 'RS256', $priv2, $pub2);
+            $validador = new JwToken('this-is-a-dummy-32-byte-secret-for-rsa-alg', 'RS256', $priv2, $pub2);
             $validador->setRsaKeyPaths(
                 ['k1' => $priv2],
                 ['k1' => $pub2]
@@ -249,14 +250,14 @@ class JwtManagerTest extends TestCase
 
     public function testSetClockSkew(): void
     {
-        $jwt = new JwToken('secret');
-        $jwt->setClockSkew(120);
-        $this->assertEquals(120, $jwt->getClockSkew());
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        $jwt->setClockSkew(30);
+        $this->assertEquals(30, $jwt->getClockSkew());
     }
 
     public function testSetClockSkewThrowsExceptionForNegativeValue(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->setClockSkew(-10);
@@ -264,7 +265,7 @@ class JwtManagerTest extends TestCase
 
     public function testSetClockSkewThrowsExceptionForTooLargeValue(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->setClockSkew(301);
@@ -272,7 +273,7 @@ class JwtManagerTest extends TestCase
 
     public function testSetMaxTokenAge(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         $jwt->setMaxTokenAge(86400);
         
         $payload = ['user_id' => 1];
@@ -283,7 +284,7 @@ class JwtManagerTest extends TestCase
 
     public function testSetMaxTokenAgeThrowsExceptionForTooSmallValue(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->setMaxTokenAge(30);
@@ -291,7 +292,7 @@ class JwtManagerTest extends TestCase
 
     public function testOldTokenIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         $jwt->setMaxTokenAge(86400); // 1 dia
         
         $payload = [
@@ -305,7 +306,7 @@ class JwtManagerTest extends TestCase
 
     public function testTokenWithFutureIatIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = [
             'user_id' => 1,
@@ -318,7 +319,7 @@ class JwtManagerTest extends TestCase
 
     public function testMissingIssuerWhenExpectedIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         $jwt->expectedIssuer = 'https://example.com';
         
         $payload = ['user_id' => 1]; // sem 'iss'
@@ -329,7 +330,7 @@ class JwtManagerTest extends TestCase
 
     public function testMissingAudienceWhenExpectedIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         $jwt->expectedAudience = 'my-api';
         
         $payload = ['user_id' => 1]; // sem 'aud'
@@ -340,7 +341,7 @@ class JwtManagerTest extends TestCase
 
     public function testAudienceAsArray(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         $jwt->expectedAudience = 'api-2';
         
         $payload = [
@@ -354,7 +355,7 @@ class JwtManagerTest extends TestCase
 
     public function testRevocationStoreBlocksToken(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = ['user_id' => 1];
         $token = $jwt->createToken($payload);
@@ -369,7 +370,7 @@ class JwtManagerTest extends TestCase
 
     public function testTokenTooLongIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->validateToken(str_repeat('a', 8200));
@@ -377,7 +378,7 @@ class JwtManagerTest extends TestCase
 
     public function testMalformedTokenIsRejected(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->validateToken('invalid.token');
@@ -385,7 +386,7 @@ class JwtManagerTest extends TestCase
 
     public function testDecodeTokenThrowsExceptionForMalformedToken(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->decodeToken('bad.token');
@@ -405,7 +406,7 @@ class JwtManagerTest extends TestCase
 
     public function testHS384Algorithm(): void
     {
-        $jwt = new JwToken('my-secret-384', 'HS384');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-hs384-key', 'HS384');
         
         $payload = ['user_id' => 99];
         $token = $jwt->createToken($payload);
@@ -415,7 +416,7 @@ class JwtManagerTest extends TestCase
 
     public function testHS512Algorithm(): void
     {
-        $jwt = new JwToken('my-secret-512', 'HS512');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-hs512-key', 'HS512');
         
         $payload = ['user_id' => 88];
         $token = $jwt->createToken($payload);
@@ -425,7 +426,7 @@ class JwtManagerTest extends TestCase
 
     public function testCustomExpirationTime(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $customExp = time() + 7200;
         $payload = [
@@ -441,7 +442,7 @@ class JwtManagerTest extends TestCase
 
     public function testAutoGeneratedJti(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = ['user_id' => 1];
         $token = $jwt->createToken($payload);
@@ -454,7 +455,7 @@ class JwtManagerTest extends TestCase
 
     public function testCustomJtiIsPreserved(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $customJti = 'my-custom-jti-12345';
         $payload = [
@@ -470,7 +471,7 @@ class JwtManagerTest extends TestCase
 
     public function testInvalidPayloadTypeThrowsException(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $this->expectException(\InvalidArgumentException::class);
         $jwt->createToken('invalid_payload');
@@ -478,7 +479,7 @@ class JwtManagerTest extends TestCase
 
     public function testNonIntegerExpClaimThrowsException(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = [
             'user_id' => 1,
@@ -491,7 +492,7 @@ class JwtManagerTest extends TestCase
 
     public function testNonIntegerIatClaimThrowsException(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = [
             'user_id' => 1,
@@ -504,7 +505,7 @@ class JwtManagerTest extends TestCase
 
     public function testNonIntegerNbfClaimThrowsException(): void
     {
-        $jwt = new JwToken('secret');
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
         
         $payload = [
             'user_id' => 1,
@@ -701,5 +702,232 @@ class JwtManagerTest extends TestCase
 
         unlink($privPath);
         unlink($pubPath);
+    }
+    
+    // ===== RE-AUDIT SECURITY FIX TESTS =====
+    
+    public function testInvalidKidFormatInCreateTokenThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        $jwt->setHmacKeys([
+            'valid-kid' => 'this-is-a-secure-32-byte-secret-key-for-testing'
+        ]);
+        
+        $payload = ['user_id' => 1];
+        
+        // Test path traversal attempt
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid kid format');
+        $jwt->createToken($payload, 120, ['kid' => '../../../etc/passwd']);
+    }
+    
+    public function testUnknownKidInCreateTokenThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        $jwt->setHmacKeys([
+            'valid-kid' => 'this-is-a-secure-32-byte-secret-key-for-testing'
+        ]);
+        
+        $payload = ['user_id' => 1];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown kid for HMAC algorithm');
+        $jwt->createToken($payload, 120, ['kid' => 'nonexistent-kid']);
+    }
+    
+    public function testExpirationTooFarInFutureThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'exp' => time() + 315360001 // Slightly over MAX_TIMESTAMP_OFFSET
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('exp timestamp is too far in the future');
+        $jwt->createToken($payload);
+    }
+    
+    public function testExpirationBeforeYear2000ThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'exp' => 946684799 // 1 second before 2000-01-01
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('exp timestamp is invalid');
+        $jwt->createToken($payload);
+    }
+    
+    public function testInvalidJtiTypeThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'jti' => 123 // Integer instead of string
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('jti must be a string');
+        $jwt->createToken($payload);
+    }
+    
+    public function testJtiTooShortThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'jti' => 'short' // Less than 16 characters
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('jti must be a string between 16 and 128 characters');
+        $jwt->createToken($payload);
+    }
+    
+    public function testJtiTooLongThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'jti' => str_repeat('a', 129) // More than 128 characters
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('jti must be a string between 16 and 128 characters');
+        $jwt->createToken($payload);
+    }
+    
+    public function testMaxExpirationMinutesExceedsLimit(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = ['user_id' => 1];
+        
+        // Try to create token with expiration beyond MAX_TIMESTAMP_OFFSET
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Token expiration must be between');
+        $jwt->createToken($payload, 315360000 / 60 + 1); // Exceed limit
+    }
+    public function testGenericErrorMessagesPreventInformationDisclosure(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        // Test 1: Token too long
+        try {
+            $jwt->validateToken(str_repeat('a', 8193));
+            $this->fail('Should have thrown exception');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertEquals('Invalid token.', $e->getMessage());
+        }
+        
+        // Test 2: Token with wrong number of parts
+        try {
+            $jwt->validateToken('only.two.parts.four');
+            $this->fail('Should have thrown exception');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertEquals('Invalid token.', $e->getMessage());
+        }
+        
+        // Test 3: Token with empty signature
+        try {
+            $jwt->validateToken('header.payload.');
+            $this->fail('Should have thrown exception');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertEquals('Invalid token.', $e->getMessage());
+        }
+        
+        $this->assertTrue(true); // All generic error messages verified
+    }
+    
+    public function testIatTooFarInFutureThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => time() + 315360001 // Over MAX_TIMESTAMP_OFFSET
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('iat timestamp is too far in the future');
+        $jwt->createToken($payload);
+    }
+    
+    public function testIatBeforeYear2000ThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => 946684799 // 1 second before 2000-01-01
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('iat timestamp is invalid');
+        $jwt->createToken($payload);
+    }
+    
+    public function testNbfTooFarInFutureThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'nbf' => time() + 315360001 // Over MAX_TIMESTAMP_OFFSET
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('nbf timestamp is too far in the future');
+        $jwt->createToken($payload);
+    }
+    
+    public function testNbfBeforeYear2000ThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'nbf' => 946684799 // 1 second before 2000-01-01
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('nbf timestamp is invalid');
+        $jwt->createToken($payload);
+    }
+    
+    public function testNonIntegerIatThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'iat' => '1234567890' // String instead of int
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Claim iat must be an integer timestamp');
+        $jwt->createToken($payload);
+    }
+    
+    public function testNonIntegerNbfThrowsException(): void
+    {
+        $jwt = new JwToken('this-is-a-secure-32-byte-secret-key-for-testing');
+        
+        $payload = [
+            'user_id' => 1,
+            'nbf' => '1234567890' // String instead of int
+        ];
+        
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Claim nbf must be an integer timestamp');
+        $jwt->createToken($payload);
     }
 }
