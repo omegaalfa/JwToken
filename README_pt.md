@@ -11,7 +11,7 @@ JwToken é uma biblioteca PHP pronta para produção que assina, valida e rotaci
 | Pilar | Benefício imediato |
  | --- | --- |
 | **Validação robusta** | `exp`, `nbf`, `iat`, `iss` e `aud` são verificados com tolerância de clock configurável. |
-| **Criptografia versátil** | Suporta HS256/384/512 e RS256 com helpers para rotacionar chaves. |
+| **Criptografia versátil** | Suporta HS256/384/512 e RS256/384/512 com helpers para rotacionar chaves. |
 | **Revogação nativa** | `jti` somado a `RevocationStoreInterface` permite bloquear tokens roubados. |
 | **Observabilidade** | Exceções específicas tornam fácil mapear falhas para métricas ou alertas.
 
@@ -106,14 +106,35 @@ Registre múltiplos segredos e assine novos tokens com a chave atual.
 
 Se o header não trouxer `kid`, o segredo passado ao construtor é usado como fallback.
 
-## Uso com RS256
+## Uso com RSA (RS256, RS384, RS512)
 
-Configure os caminhos das chaves privada e pública e deixe o OpenSSL cuidar da assinatura.
+Configure os caminhos das chaves privada e pública e deixe o OpenSSL cuidar da assinatura. JwToken suporta três algoritmos de assinatura RSA:
+
+- **RS256** - RSA com SHA-256 (mais comum)
+- **RS384** - RSA com SHA-384 (segurança aumentada)
+- **RS512** - RSA com SHA-512 (máxima segurança)
 
  ```php
+ // Usando RS256
  $jwt = new JwToken(
-     secretKey: 'não usado para RS256',
+     secretKey: 'não usado para RSA',
      algorithm: 'RS256',
+     pathPrivateKey: __DIR__ . '/keys/private.pem',
+     pathPublicKey: __DIR__ . '/keys/public.pem'
+ );
+
+ // Ou usando RS384 para maior segurança
+ $jwt = new JwToken(
+     secretKey: 'não usado para RSA',
+     algorithm: 'RS384',
+     pathPrivateKey: __DIR__ . '/keys/private.pem',
+     pathPublicKey: __DIR__ . '/keys/public.pem'
+ );
+
+ // Ou usando RS512 para máxima segurança
+ $jwt = new JwToken(
+     secretKey: 'não usado para RSA',
+     algorithm: 'RS512',
      pathPrivateKey: __DIR__ . '/keys/private.pem',
      pathPublicKey: __DIR__ . '/keys/public.pem'
  );

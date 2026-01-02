@@ -11,7 +11,7 @@ JwToken is a production-ready PHP library for signing, validating and rotating J
 | Pillar | What it delivers |
  | --- | --- |
 | **Robust validation** | Strict `exp`, `nbf`, `iat`, `iss`, `aud` checks plus configurable clock skew to prevent replay attacks. |
-| **Crypto flexibility** | Supports HS256/384/512 and RS256, with helpers for swapping keys without downtime. |
+| **Crypto flexibility** | Supports HS256/384/512 and RS256/384/512, with helpers for swapping keys without downtime. |
 | **Revocation ready** | Inject a `RevocationStoreInterface` implementation to block stolen tokens by their `jti`. |
 | **Telemetry-friendly** | Errors throw specific exceptions that can be mapped to observability pipelines.
 
@@ -109,14 +109,35 @@ Maintaining multiple HMAC secrets lets you rotate without invalidating traffic i
 
 If a header lacks a valid `kid`, the constructor secret acts as fallback so legacy clients still work.
 
-## RS256 usage
+## RSA usage (RS256, RS384, RS512)
 
-When you need public/private key pairs, provide the PEM files and let JwToken verify signatures with OpenSSL.
+When you need public/private key pairs, provide the PEM files and let JwToken verify signatures with OpenSSL. JwToken supports three RSA signature algorithms:
+
+- **RS256** - RSA with SHA-256 (most common)
+- **RS384** - RSA with SHA-384 (higher security)
+- **RS512** - RSA with SHA-512 (maximum security)
 
  ```php
+ // Using RS256
  $jwt = new JwToken(
      secretKey: 'unused-for-rs',
      algorithm: 'RS256',
+     pathPrivateKey: __DIR__ . '/keys/private.pem',
+     pathPublicKey: __DIR__ . '/keys/public.pem'
+ );
+
+ // Or using RS384 for higher security
+ $jwt = new JwToken(
+     secretKey: 'unused-for-rs',
+     algorithm: 'RS384',
+     pathPrivateKey: __DIR__ . '/keys/private.pem',
+     pathPublicKey: __DIR__ . '/keys/public.pem'
+ );
+
+ // Or using RS512 for maximum security
+ $jwt = new JwToken(
+     secretKey: 'unused-for-rs',
+     algorithm: 'RS512',
      pathPrivateKey: __DIR__ . '/keys/private.pem',
      pathPublicKey: __DIR__ . '/keys/public.pem'
  );

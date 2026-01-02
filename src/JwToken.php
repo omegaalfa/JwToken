@@ -26,7 +26,16 @@ class JwToken
         'HS512' => 'sha512',
     ];
 
-    private const array ALLOWED_ALGORITHMS = ['HS256', 'HS384', 'HS512', 'RS256'];
+    /**
+     * @var array<string, int>
+     */
+    private const array RSA_ALGO_MAP = [
+        'RS256' => OPENSSL_ALGO_SHA256,
+        'RS384' => OPENSSL_ALGO_SHA384,
+        'RS512' => OPENSSL_ALGO_SHA512,
+    ];
+
+    private const array ALLOWED_ALGORITHMS = ['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512'];
     private const int MAX_TOKEN_LENGTH = 8_192;
     /**
      * @var string
@@ -105,7 +114,7 @@ class JwToken
             throw new InvalidArgumentException('Algoritmo JWT não suportado.');
         }
 
-        if ($this->algorithm === 'RS256') {
+        if (in_array($this->algorithm, ['RS256', 'RS384', 'RS512'], true)) {
             if (!file_exists($this->pathPrivateKey) || !file_exists($this->pathPublicKey)) {
                 throw new InvalidArgumentException('public or private key path not provided or does not exist.');
             }
@@ -262,7 +271,7 @@ class JwToken
      */
     public function generateSignature(string $base64UrlHeader, string $base64UrlPayload): string
     {
-        if ($this->algorithm === 'RS256') {
+        if (isset(self::RSA_ALGO_MAP[$this->algorithm])) {
             $headerDecoded = json_decode($this->baseDecode($base64UrlHeader), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($headerDecoded)) {
                 throw new JsonException('Invalid JWT header.');
@@ -271,8 +280,9 @@ class JwToken
             /** @var array<string, mixed> $headerArray */
             $headerArray = $headerDecoded;
             $privateKey = $this->loadPrivateKeyForHeader($headerArray);
+            $opensslAlgo = self::RSA_ALGO_MAP[$this->algorithm];
 
-            if (!openssl_sign($base64UrlHeader . '.' . $base64UrlPayload, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+            if (!openssl_sign($base64UrlHeader . '.' . $base64UrlPayload, $signature, $privateKey, $opensslAlgo)) {
                 throw new JsonException('Failed to generate token signature.');
             }
 
@@ -414,12 +424,13 @@ class JwToken
 
         $signature = $this->baseDecode($base64UrlSignature);
 
-        if ($this->algorithm === 'RS256') {
+        if (isset(self::RSA_ALGO_MAP[$this->algorithm])) {
             $data = $base64UrlHeader . '.' . $base64UrlPayload;
             $publicKeyPath = $this->resolveRsaPublicKeyPath($headerDecoded);
             $publicKey = $this->readFile($publicKeyPath);
+            $opensslAlgo = self::RSA_ALGO_MAP[$this->algorithm];
 
-            if (!openssl_verify($data, $signature, $publicKey, OPENSSL_ALGO_SHA256)) {
+            if (!openssl_verify($data, $signature, $publicKey, $opensslAlgo)) {
                 return false;
             }
         } else {

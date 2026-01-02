@@ -528,4 +528,178 @@ class JwtManagerTest extends TestCase
         $store->add('test-jti');
         $this->assertTrue($store->isRevoked('test-jti'));
     }
+
+    public function testRS384Algorithm(): void
+    {
+        [$privPath, $pubPath] = $this->generateRsaKeyPair();
+
+        $jwt = new JwToken('secret', 'RS384', $privPath, $pubPath);
+
+        $payload = ['user_id' => 123, 'name' => 'Test User'];
+        $token = $jwt->createToken($payload);
+
+        $this->assertIsString($token);
+        $this->assertTrue($jwt->validateToken($token));
+
+        $decoded = $jwt->decodeToken($token);
+        $this->assertEquals(123, $decoded['user_id']);
+        $this->assertEquals('Test User', $decoded['name']);
+
+        unlink($privPath);
+        unlink($pubPath);
+    }
+
+    public function testRS512Algorithm(): void
+    {
+        [$privPath, $pubPath] = $this->generateRsaKeyPair();
+
+        $jwt = new JwToken('secret', 'RS512', $privPath, $pubPath);
+
+        $payload = ['user_id' => 456, 'role' => 'admin'];
+        $token = $jwt->createToken($payload);
+
+        $this->assertIsString($token);
+        $this->assertTrue($jwt->validateToken($token));
+
+        $decoded = $jwt->decodeToken($token);
+        $this->assertEquals(456, $decoded['user_id']);
+        $this->assertEquals('admin', $decoded['role']);
+
+        unlink($privPath);
+        unlink($pubPath);
+    }
+
+    public function testRS384WithInvalidSignatureFails(): void
+    {
+        [$privPath1, $pubPath1] = $this->generateRsaKeyPair();
+        [$privPath2, $pubPath2] = $this->generateRsaKeyPair();
+
+        $jwtSigner = new JwToken('secret', 'RS384', $privPath1, $pubPath1);
+        $jwtValidator = new JwToken('secret', 'RS384', $privPath2, $pubPath2);
+
+        $payload = ['user_id' => 789];
+        $token = $jwtSigner->createToken($payload);
+
+        $this->assertFalse($jwtValidator->validateToken($token));
+
+        unlink($privPath1);
+        unlink($pubPath1);
+        unlink($privPath2);
+        unlink($pubPath2);
+    }
+
+    public function testRS512WithInvalidSignatureFails(): void
+    {
+        [$privPath1, $pubPath1] = $this->generateRsaKeyPair();
+        [$privPath2, $pubPath2] = $this->generateRsaKeyPair();
+
+        $jwtSigner = new JwToken('secret', 'RS512', $privPath1, $pubPath1);
+        $jwtValidator = new JwToken('secret', 'RS512', $privPath2, $pubPath2);
+
+        $payload = ['user_id' => 999];
+        $token = $jwtSigner->createToken($payload);
+
+        $this->assertFalse($jwtValidator->validateToken($token));
+
+        unlink($privPath1);
+        unlink($pubPath1);
+        unlink($privPath2);
+        unlink($pubPath2);
+    }
+
+    public function testRS384WithKidRotation(): void
+    {
+        [$priv1, $pub1] = $this->generateRsaKeyPair();
+        [$priv2, $pub2] = $this->generateRsaKeyPair();
+
+        $jwt = new JwToken('secret', 'RS384', $priv1, $pub1);
+        $jwt->setRsaKeyPaths(
+            ['key1' => $priv1, 'key2' => $priv2],
+            ['key1' => $pub1, 'key2' => $pub2]
+        );
+
+        $payload1 = ['user_id' => 1];
+        $token1 = $jwt->createToken($payload1, 60, ['kid' => 'key1']);
+        $this->assertTrue($jwt->validateToken($token1));
+
+        $payload2 = ['user_id' => 2];
+        $token2 = $jwt->createToken($payload2, 60, ['kid' => 'key2']);
+        $this->assertTrue($jwt->validateToken($token2));
+
+        unlink($priv1);
+        unlink($pub1);
+        unlink($priv2);
+        unlink($pub2);
+    }
+
+    public function testRS512WithKidRotation(): void
+    {
+        [$priv1, $pub1] = $this->generateRsaKeyPair();
+        [$priv2, $pub2] = $this->generateRsaKeyPair();
+
+        $jwt = new JwToken('secret', 'RS512', $priv1, $pub1);
+        $jwt->setRsaKeyPaths(
+            ['k1' => $priv1, 'k2' => $priv2],
+            ['k1' => $pub1, 'k2' => $pub2]
+        );
+
+        $payload1 = ['user_id' => 100];
+        $token1 = $jwt->createToken($payload1, 60, ['kid' => 'k1']);
+        $this->assertTrue($jwt->validateToken($token1));
+
+        $payload2 = ['user_id' => 200];
+        $token2 = $jwt->createToken($payload2, 60, ['kid' => 'k2']);
+        $this->assertTrue($jwt->validateToken($token2));
+
+        unlink($priv1);
+        unlink($pub1);
+        unlink($priv2);
+        unlink($pub2);
+    }
+
+    public function testRS384RequiresKeyFiles(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new JwToken('secret', 'RS384', '', '');
+    }
+
+    public function testRS512RequiresKeyFiles(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new JwToken('secret', 'RS512', '', '');
+    }
+
+    public function testAlgorithmMismatchRS384Fails(): void
+    {
+        [$privPath, $pubPath] = $this->generateRsaKeyPair();
+
+        $jwtRS384 = new JwToken('secret', 'RS384', $privPath, $pubPath);
+        $jwtRS256 = new JwToken('secret', 'RS256', $privPath, $pubPath);
+
+        $payload = ['user_id' => 1];
+        $tokenRS384 = $jwtRS384->createToken($payload);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $jwtRS256->validateToken($tokenRS384);
+
+        unlink($privPath);
+        unlink($pubPath);
+    }
+
+    public function testAlgorithmMismatchRS512Fails(): void
+    {
+        [$privPath, $pubPath] = $this->generateRsaKeyPair();
+
+        $jwtRS512 = new JwToken('secret', 'RS512', $privPath, $pubPath);
+        $jwtRS256 = new JwToken('secret', 'RS256', $privPath, $pubPath);
+
+        $payload = ['user_id' => 1];
+        $tokenRS512 = $jwtRS512->createToken($payload);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $jwtRS256->validateToken($tokenRS512);
+
+        unlink($privPath);
+        unlink($pubPath);
+    }
 }
